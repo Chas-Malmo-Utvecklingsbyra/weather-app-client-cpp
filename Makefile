@@ -1,5 +1,14 @@
 # Compiler
-CC := gcc
+CXX := g++
+
+# Compiler flags
+CXXFLAGS = -std=c++17 -Wall -g
+
+# Name of the final binary
+BIN := main
+
+#
+BIN_DELETE := main.o
 
 # Source directory
 SRC_DIR := src
@@ -7,87 +16,28 @@ SRC_DIR := src
 # Directory where object files will be placed
 BUILD_DIR := build
 
-# Flags for the compiler
-# -Wfatal-errors makes the compiler stop at the first error
-# -Wno-format-truncation to suppress format truncation warnings
-# -I to add include directories
-# -MMD -MP to generate dependency files
-# -Werror to treat warnings as errors
-CFLAGS := -std=c99 -Wall -Wextra -MMD -MP -Wno-format-truncation -Iincludes -Iinclude -Ilibs -Isrc
+CPPFLAGS :=-g -pthread 
 
-# Linker flags
-LDFLAGS := -flto -Wl,--gc-sections
+# Find all .cpp source files in SRC_DIR and its subdirectories
+SRCS := $(shell find -L $(SRC_DIR) -type f -name '*.cpp')
 
-# Libraries to link against
-LIBS := -lcurl
+# Object files 
+OBJS = $(SRCS:.cpp=.o)
 
-# Find all .c source files in SRC_DIR and its subdirectories
-SRC := $(shell find -L $(SRC_DIR) -type f -name '*.c')
+# Default rule to build and run the executable
+all: $(BIN) run
 
-# Map each .c to corresponding .o in BUILD_DIR
-# Here it calls the built-in 'patsubst' function in Make to replace prefix and suffix
-# That is, it takes each file path in SRC matching the pattern $(SRC_DIR)/%.c and replaces it with $(BUILD_DIR)/%.o
-OBJ := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRC))
+# Rule to link object files into the target executable
+$(BIN): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(BIN) $(OBJS)
+# Rule to compile .cpp files into .o files
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Tillhörande .d-filer (dependency-filer skapade av -MMD)
-# Här härleder vi .d-filerna direkt från OBJ genom att bara byta filändelsen från .o till .d
-# Eftersom varje .o kompileras med -MMD (och vi anger -o $@), skriver GCC normalt .d filerna i samma sökväg som .o filerna.
-# Så mappningen stämmer rekursivt.
-DEP := $(OBJ:.o=.d)
-
-
-BIN := main
-
-# Standardmål: bygg binären
-# Se det som en function man kan anropa utifrån (make all)
-# Det efter : betyder att detta mål beror på $(BIN)
-# Alltså, för att bygga målet 'all', måste FÖRST '$(BIN)' byggas.
-# Alltså raden "$(BIN): $(OBJ)" nedan körs först
-all: $(BIN)
-	@echo "Build complete."
-
-# Länksteg: binären beror på alla objektfiler
-# Se också detta som en funktion men som anropas inifrån (av 'all' målet)
-# Och för att bygga målet '$(BIN)', måste FÖRST listan på objektfiler byggas (alla .o filer i $(OBJ))
-# Det ser vi på raden efter : som säger att '$(BIN)' beror på hela listan med objektfiler, alltså '$(OBJ)'
-# Eftersom OBJ är en lista på alla .o filer som ska byggas så tar den varje sökväg och letar efter ett mål som matchar
-# mönstret "$(BUILD_DIR)/%.o" (se nedan) och kör det för varje fil i listan.
-# Alltså raden "$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c" nedan körs för alla inaktuella filer först. (Han jämför tidsstämplar mellan .c och .o i filsystemet)
-$(BIN): $(OBJ)
-	@$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
-
-# Mönsterregel: bygger en .o från motsvarande .c
-# Samma här, detta är en funktion som anropas inifrån (av '$(BIN)' målet)
-# Om varje enskild .o fil saknas eller är äldre än sin motsvarande .c fil (eller någon header via dep-filen), körs denna regel för att kompilera.
-# Det ser vi på raden efter : som säger att varje .o fil i $(BUILD_DIR) beror på motsvarande .c fil i $(SRC_DIR)
-# Det den gör är att den kör denna regel för varje fil som matchar mönstret, exempelvis: 
-#   $(BUILD_DIR)/subfolder/test.o: $(SRC_DIR)/subfolder/test.c
-#   $(BUILD_DIR)/main.o: $(SRC_DIR)/main.c
-# 	osv...
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	@echo "Compiling $<..."
-	@mkdir -p $(dir $@)
-	@$(CC) $(CFLAGS) -c $< -o $@
-
-# Hjälpmål: kör programmet om det är byggt
-# Se det som en function anropas utifrån (make run)
-# Men för att köra, måste FÖRST '$(BIN)' byggas
+# Rule to run the executable
 run: $(BIN)
 	./$(BIN)
 
-# Hjälpmål: städa bort genererade filer
+# Clean rule to remove generated files
 clean:
-	@rm -rf $(BUILD_DIR) $(BIN)
-
-# Hjälpmål: skriv ut variabler för felsökning
-# Kör make print för att se variablerna efter expansion
-print:
-	@echo "Källfiler: $(SRC)"
-	@echo "Objektfiler: $(OBJ)"
-	@echo "Dependency-filer: $(DEP)"
-
-# Inkludera header-beroenden (prefix '-' = ignorera om de inte finns ännu)
--include $(DEP)
-
-# Dessa mål är inte riktiga filer; kör alltid när de anropas
-.PHONY: all run clean
+	rm -f $(BIN) $(BIN_DELETE) $(OBJS)
