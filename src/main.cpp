@@ -1,10 +1,16 @@
 #include <iostream>
 #include <string>
+#include <iomanip>
 
-#include "core/http/http.h"
-#include "core/http/httpClient/httpClient.h"
-#include "core/http/parser.h"
-#include "core/locationiq/locationiq.h"
+extern "C"{
+    #include "core/http/http.h"
+    #include "core/http/httpClient/httpClient.h"
+    #include "core/http/parser.h"
+    #include "core/locationiq/locationiq.h"
+}
+
+#define SERVER_ADDR "malmo.onvo.se"
+#define TEST_PORT 10280
 
 static void on_received_full_message(HTTPClient *client)
 {
@@ -85,19 +91,17 @@ int main()
             {
                 while (true)
                 {
-                    float lat, lon;
-
                     std::cout << "Please enter latitude (-90 to 90):\n";
-                    std::cin >> lat;
+                    std::cin >> latitude;
                     std::cout << "Please enter longitude (-180 to 180):\n";
-                    std::cin >> lon;
+                    std::cin >> longitude;
 
-                    if (lat < -90 || lat > 90)
+                    if (latitude < -90 || latitude > 90)
                     {
                         std::cout << "Invalid latitude value. Try again.\n";
                         continue;
                     }
-                    if (lon < -180 || lon > 180)
+                    if (longitude < -180 || longitude > 180)
                     {
                         std::cout << "Invalid longitdue value. Try again.\n";
                         continue;
@@ -116,7 +120,23 @@ int main()
             }
 
         }
+
+        std::cout << "Getting weather for latitude: " << latitude << " longitude: " << longitude << "\n";
+
+        std::string route = "/v1/weather?latitude=" + std::to_string(latitude) + "&longitude=" + std::to_string(longitude);
+        
+        HTTPClient_Reset(&client);
+
+        HTTPClient_GET(&client, "155.4.19.176", route.c_str());
+
+        while (HTTPClient_Work(&client) == false)
+        {
+
+        }
     }
+
+    HTTPClient_Dispose(&client);
+    std::cout << "Goodbye and thank you for using our Weather Client!\n";
 
     return 0;
 }
